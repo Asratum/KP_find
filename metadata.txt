@@ -1,0 +1,55 @@
+# This file contains metadata for your plugin.
+
+# This file should be included when you package your plugin.# Mandatory items:
+
+[general]
+name=KP Find
+qgisMinimumVersion=3.0
+description=Finds geodetic distance along and to the side of a line
+version=3.0.0
+author=Milen Iliev
+email=m.iliev@posteo.de
+
+about=
+	Measures geodetic distance along a line, i.e. the chainage (in KP - kilometer points) and offset. 
+	Clicking copies the information to the clipboard. Can also make a copy of a point layer with new attributes for KP and DOL.
+	Please note: the plugin only accepts layers with the same CRS. It takes the first feature in the line layer - 
+	it is best if the line layer has only one feature, but the plugin will issue a warning if not the case.
+	Dependent on geographiclib (included in plugin itself).
+	Code borrowed from the Lat Lon Tools, Shapetools and Closest Point plugins.
+	Reliable results only with projected layers!
+	Tested on QGIS version 3.10.2.
+
+tracker=https://github.com/Asratum/KP_find/issues
+repository=https://github.com/Asratum/KP_find
+# End of mandatory metadata
+
+# Recommended items:
+
+hasProcessingProvider=no
+# Uncomment the following line and add your changelog:
+# changelog=
+
+# Tags are comma separated with spaces allowed
+tags=python, chainage, qgis3, KP, distance along line, geodetic distance
+
+homepage=https://github.com/Asratum
+category=Plugins
+icon=main_icon.png
+# experimental flag
+experimental=False
+
+# deprecated flag (applies to the whole plugin, not just a single version)
+deprecated=False
+
+# Since QGIS 3.8, a comma separated list of plugins to be installed
+# (or upgraded) can be specified.
+# Check the documentation for more information.
+# plugin_dependencies=
+
+Category of the plugin: Raster, Vector, Database or Web
+#category=Vector
+
+# If the plugin can run on QGIS Server.
+server=False
+

@@ -96,11 +96,11 @@ class KPTool(QgsMapToolEmitPoint):
         DT_message = '{:.{prec}f}'.format(dist_off_L, prec=self.dccdec) #round to specified decimal
         #check for output format below:
         if self.out_format == KpFindDialogIR.KP_out:  # KP
-            msg = "KP " + str(LL_message)
+            msg = "KP " + str(LL_message) +" on layer " + str(self.linelayer.name())
         elif self.out_format == KpFindDialogIR.KP_DCC_Out:  # KP and DCC
-            msg = "KP " + str(LL_message) + " , DOL : " + str(DT_message) +" m"
+            msg = "KP " + str(LL_message) + " , DOL : " + str(DT_message) +" m" +" on layer " + str(self.linelayer.name())
         elif self.out_format == KpFindDialogIR.DMS_out:  # Lat Lon and KP
-            msg = self.formatCoord(pt) + " (KP " + str(LL_message) + ")"
+            msg = self.formatCoord(pt) + " (KP " + str(LL_message) + ")" +" on layer " + str(self.linelayer.name())
         
         if msg is not None:
             clipboard = QApplication.clipboard()
@@ -210,7 +210,7 @@ class KPTool(QgsMapToolEmitPoint):
                 out = distance/1000 # Distance converted KM       
         return out
         
-    def KP_Iterate_pts(self, linetoMeasure, ptLayer):
+    def KP_Iterate_pts(self, linetoMeasurekp4p, ptLayer):
         """will iterate over all points in a layer, finding distance to and along line.
         Outputs a new layer. Inspired by shape tools and closest point plugins"""
         new_pt_layer = QgsVectorLayer("Point", "KPed_"+ str(ptLayer.name()), "memory") #define new layer we will return
@@ -239,8 +239,8 @@ class KPTool(QgsMapToolEmitPoint):
             new_feat.setGeometry(geom_of) #create and set geometry from old feature
             attributes_nf=old_feat.attributes()  #copy of old feat attributes
             
-            kp_dist = self.measureLineGeod(linetoMeasure, point_of) #run measurements
-            prjp, dcc_dist = self.closestPt(linetoMeasure, point_of) #run measurements. we won't need prjp
+            kp_dist = self.measureLineGeod(linetoMeasurekp4p, point_of) #run measurements
+            prjp, dcc_dist = self.closestPt(linetoMeasurekp4p, point_of) #run measurements. we won't need prjp
 
             attributes_nf.append(round(kp_dist, self.kpdeckp4p)) #round with precision values
             attributes_nf.append(round(dcc_dist,self.dccdeckp4p)) #round with precision values

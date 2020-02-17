@@ -6,7 +6,7 @@
 name=KP Find
 qgisMinimumVersion=3.0
 description=Finds geodetic distance along and to the side of a line
-version=3.0.0
+version=3.0.1
 author=Milen Iliev
 email=m.iliev@posteo.de
 
@@ -41,6 +41,10 @@ experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
+
+changelog=
+	3.0.1 - Dialog windows stay on top, fixed a bug where you keep picking a line if you get error
+	3.0.0 - Initial QGIS release
 
 # Since QGIS 3.8, a comma separated list of plugins to be installed
 # (or upgraded) can be specified.

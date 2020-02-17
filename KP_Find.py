@@ -5,7 +5,7 @@ site.addsitedir(os.path.abspath(os.path.dirname(__file__) + '/ext-libs'))
 
 
 
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import Qt, QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 from qgis.gui import QgsMapToolEmitPoint, QgsVertexMarker
@@ -160,8 +160,11 @@ class KpFind:
             self.first_startIR = False
             self.dlgIR = KpFindDialogIR()
             self.dlgIR.inputLineLayer.setFilters(QgsMapLayerProxyModel.LineLayer) #allows only line layers in the box
+            self.dlgIR.setWindowFlags(Qt.WindowStaysOnTopHint) #dialog window should always stay on top
+
 
         # show the dialog
+        
         self.dlgIR.show()
         # Run the dialog event loop
         result = self.dlgIR.exec_()
@@ -185,9 +188,11 @@ class KpFind:
                 self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() #pass on variable for decimals for DCC
                 self.mapTool.lineLayer=lineLayer #push the line layer to mapTool
                 self.canvas.setMapTool(self.mapTool) #tell QGIS that we use our tool
+                
                 #self.iface.messageBar().pushMessage("Processing " + lineLayer.name() ,duration=1)
             else:
                 self.iface.messageBar().pushMessage("Line and project CRS do not match (and they have to)!",level=Qgis.Warning)
+                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with old layer if already loaded
             
       
     def Kp4Points(self):
@@ -196,8 +201,10 @@ class KpFind:
             self.dlgKp4p = KpFindDialogKp4p()
             self.dlgKp4p.inputLineLayerKp4p.setFilters(QgsMapLayerProxyModel.LineLayer) #allows only line layers in the box
             self.dlgKp4p.inputPtLayerKp4p.setFilters(QgsMapLayerProxyModel.PointLayer) #allows only point layers in the box
+            self.dlgKp4p.setWindowFlags(Qt.WindowStaysOnTopHint) #make window always stay on top
  
         # show the dialog
+
         self.dlgKp4p.show()
         # Run the dialog event loop
         result = self.dlgKp4p.exec_()
@@ -214,6 +221,9 @@ class KpFind:
                 self.mapTool.dccdeckp4p = self.dlgKp4p.DCC_prec_kp4p.value() #pass on precision values
                 new_ptLayer =self.mapTool.KP_Iterate_pts(lnLayer, ptLayer) #function to iterate over points, calls other functions in it
                 QgsProject.instance().addMapLayer(new_ptLayer) #add new layer to map
+                self.iface.messageBar().pushMessage("Processed points along layer " + str(lnLayer.name()),level=Qgis.Info, duration = 2)
             else:
                 self.iface.messageBar().pushMessage("Line and points CRS do not match (and they have to)!",level=Qgis.Warning)
+                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with old layer if already loaded
+                
 

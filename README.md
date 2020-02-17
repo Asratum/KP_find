@@ -9,3 +9,6 @@ KP Find QGIS Plugin
 	Code borrowed from the Lat Lon Tools, Shapetools and Closest Point plugins.
 	Reliable results only with projected layers!
 	Tested on QGIS version 3.10.2.
+
+	3.0.1 - Dialog windows stay on top, fixed a bug where you keep picking a line if you get error
+	3.0.0 - Initial QGIS release

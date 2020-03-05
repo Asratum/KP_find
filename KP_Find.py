@@ -161,22 +161,15 @@ class KpFind:
             self.dlgIR = KpFindDialogIR()
             self.dlgIR.inputLineLayer.setFilters(QgsMapLayerProxyModel.LineLayer) #allows only line layers in the box
             self.dlgIR.setWindowFlags(Qt.WindowStaysOnTopHint) #dialog window should always stay on top
-
-
-        # show the dialog
-        
+        # show the dialog        
         self.dlgIR.show()
         # Run the dialog event loop
         result = self.dlgIR.exec_()
-
         # See if OK was pressed
-        if result:
-            
+        if result:            
             lineLayer=self.dlgIR.inputLineLayer.currentLayer() #gets the layer from the input QT box
-            
             self.proj_crs = self.canvas.mapSettings().destinationCrs()
             check = lineLayer.crs() == self.proj_crs
-            
             if check is True:
                 if lineLayer.featureCount() > 1:
                     self.iface.messageBar().pushMessage("More than 1 feature in line layer, using the first feature!",level=Qgis.Warning)
@@ -188,7 +181,6 @@ class KpFind:
                 self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() #pass on variable for decimals for DCC
                 self.mapTool.lineLayer=lineLayer #push the line layer to mapTool
                 self.canvas.setMapTool(self.mapTool) #tell QGIS that we use our tool
-                
                 #self.iface.messageBar().pushMessage("Processing " + lineLayer.name() ,duration=1)
             else:
                 self.iface.messageBar().pushMessage("Line and project CRS do not match (and they have to)!",level=Qgis.Warning)
@@ -202,9 +194,7 @@ class KpFind:
             self.dlgKp4p.inputLineLayerKp4p.setFilters(QgsMapLayerProxyModel.LineLayer) #allows only line layers in the box
             self.dlgKp4p.inputPtLayerKp4p.setFilters(QgsMapLayerProxyModel.PointLayer) #allows only point layers in the box
             self.dlgKp4p.setWindowFlags(Qt.WindowStaysOnTopHint) #make window always stay on top
- 
         # show the dialog
-
         self.dlgKp4p.show()
         # Run the dialog event loop
         result = self.dlgKp4p.exec_()

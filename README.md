@@ -10,5 +10,6 @@ KP Find QGIS Plugin
 	Reliable results only with projected layers!
 	Tested on QGIS version 3.10.2.
 
+	3.0.2 - KP measurements extend past the end points of the lines
 	3.0.1 - Dialog windows stay on top, fixed a bug where you keep picking a line if you get error
 	3.0.0 - Initial QGIS release

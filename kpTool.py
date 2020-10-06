@@ -1,4 +1,3 @@
-
 from geographiclib.geodesic import Geodesic #extra library included with plugin
 from qgis.PyQt.QtCore import Qt, pyqtSignal, QVariant
 from qgis.PyQt.QtGui import QColor
@@ -100,7 +99,7 @@ class KPTool(QgsMapToolEmitPoint):
         elif self.out_format == KpFindDialogIR.KP_DCC_Out:  # KP and DCC
             msg = "KP " + str(LL_message) + " , DOL : " + str(DT_message) +" m"
         elif self.out_format == KpFindDialogIR.DMS_out:  # Lat Lon and KP
-            msg = self.formatCoord(pt) + " (KP " + str(LL_message) + ")"
+            msg = self.formatCoord(pt)[0] + ", "+ self.formatCoord(pt)[1] + " (KP " + str(LL_message) + ")"
         
         if msg is not None:
             clipboard = QApplication.clipboard()
@@ -242,7 +241,9 @@ class KPTool(QgsMapToolEmitPoint):
             else : provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.String)])
 
         provider_ptLayer.addAttributes([QgsField("KP", QVariant.Double),
-                                    QgsField("DCC", QVariant.Double)])  #two new fields we are calculating
+                                    QgsField("DCC", QVariant.Double), 
+                                    QgsField("Latitude", QVariant.String),
+                                    QgsField("Longitude", QVariant.String)])  #four new fields we are calculating
         new_pt_layer.startEditing()
         
         for old_feat in ptLayer.getFeatures(): #iterate over all point features
@@ -258,6 +259,8 @@ class KPTool(QgsMapToolEmitPoint):
 
             attributes_nf.append(round(kp_dist, self.kpdeckp4p)) #round with precision values
             attributes_nf.append(round(dcc_dist,self.dccdeckp4p)) #round with precision values
+            attributes_nf.append(self.formatCoord(point_of)[0]) #insert latitude
+            attributes_nf.append(self.formatCoord(point_of)[1]) #insert longitude
             new_feat.setAttributes(attributes_nf) #set new attributes to new feat
             provider_ptLayer.addFeatures([ new_feat ]) #add new feature to provider
             
@@ -276,7 +279,7 @@ class KPTool(QgsMapToolEmitPoint):
 
         lat = self.convertDD2DM(pt4326.y(), True, 4)
         lon = self.convertDD2DM(pt4326.x(), False, 4)
-        return str(lat + ", " + lon)
+        return [lat,lon]
         
         
     def convertDD2DM(self, coord, islat, prec):
@@ -301,14 +304,6 @@ class KPTool(QgsMapToolEmitPoint):
         s = ""
 
         # Properly handle rounding based on the digit precision
-        d = "{:.{prec}f}".format(sec, prec=prec)
-        if float(d) == 60:
-            min += 1
-            sec = 0
-            if min == 60:
-                deg += 1
-                min = 0
-
         d = "{:.{prec}f}".format(dmin, prec=prec)
         if float(d) == 60:
             deg += 1

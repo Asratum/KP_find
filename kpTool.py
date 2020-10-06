@@ -231,19 +231,40 @@ class KPTool(QgsMapToolEmitPoint):
         prov_old = ptLayer.dataProvider() #provider to get the attribute field names and type
         provider_ptLayer = new_pt_layer.dataProvider() #provider for new layer to add the features to
         fields_ptLayer = prov_old.fields()
-
+        old_fields_names = [] #we will use this later to compare for collisions
         for f in fields_ptLayer: #iterate over all field names and add to new provider
             znameField= f.name()
+            old_fields_names.append(f.name()) #create the collision test list
             Type= str(f.typeName())
             if Type == 'Integer': provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.Int)])
             if Type == 'Real': provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.Double)])
             if Type == 'String': provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.String)])
             else : provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.String)])
+  
+        #check for name collisions in attribute fields
+        iterate_names_list = ["KP","DOL","Latitude","Longitude"]
+        new_attr_names = [] #here we get any updated attributes
+        trynumber = 1
+        num_suffix = ''
+        max_num = 1      
+        for name in iterate_names_list:
+            collision = True
+            while collision:   # Iterate until there are no collissions
+                collision = False
+                if name+num_suffix in old_fields_names:
+                    collision = True
+                    num_suffix = '_'+str(trynumber)
+                    if trynumber > max_num+1:
+                        max_num = trynumber 
+                        num_suffix = '_'+str(max_num)
+                    trynumber = trynumber + 1
+            
+        new_attr_names = [item + num_suffix for item in iterate_names_list] #add same suffix to all fields
 
-        provider_ptLayer.addAttributes([QgsField("KP", QVariant.Double),
-                                    QgsField("DCC", QVariant.Double), 
-                                    QgsField("Latitude", QVariant.String),
-                                    QgsField("Longitude", QVariant.String)])  #four new fields we are calculating
+        provider_ptLayer.addAttributes([QgsField(new_attr_names[0], QVariant.Double),
+                                    QgsField(new_attr_names[1], QVariant.Double), 
+                                    QgsField(new_attr_names[2], QVariant.String),
+                                    QgsField(new_attr_names[3], QVariant.String)])  #four new fields we are calculating
         new_pt_layer.startEditing()
         
         for old_feat in ptLayer.getFeatures(): #iterate over all point features

@@ -7,7 +7,6 @@ site.addsitedir(os.path.abspath(os.path.dirname(__file__) + '/ext-libs'))
 
 from qgis.PyQt.QtCore import Qt, QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
 from qgis.gui import QgsMapToolEmitPoint, QgsVertexMarker
 
 from PyQt5.QtWidgets import QAction, QMessageBox #give messages
@@ -170,7 +169,12 @@ class KpFind:
             lineLayer=self.dlgIR.inputLineLayer.currentLayer() #gets the layer from the input QT box
             self.proj_crs = self.canvas.mapSettings().destinationCrs()
             check = lineLayer.crs() == self.proj_crs
-            if check is True:
+            geographic_check = False if lineLayer.crs().isGeographic() else True
+            print(lineLayer.crs().isGeographic())            
+            if geographic_check is False:
+                self.iface.messageBar().pushMessage("Geographic CRS detected, need projected CRS!",level=Qgis.Warning)
+                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with plugin
+            elif check is True:
                 if lineLayer.featureCount() > 1:
                     self.iface.messageBar().pushMessage("More than 1 feature in line layer, using the first feature!",level=Qgis.Warning)
                 
@@ -178,15 +182,15 @@ class KpFind:
                 self.mapTool.removeVertexMarker()
                 self.mapTool.kpdec = self.dlgIR.KP_prec.value() #pass on variable for decimals for KP
                 self.mapTool.dccdec = self.dlgIR.DCC_prec.value() #pass on variable for decimals for DCC
-                self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() #pass on variable for decimals for DCC
+                self.mapTool.reversekp_status = self.dlgIR.Reverse_KP.checkState() #pass on True if the button is checked
+                self.mapTool.offset = self.dlgIR.offset_m.value()/1000 #grab the offset from the dialogue, convert to km
+                self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() #pass on variable for decimals for DOL
                 self.mapTool.lineLayer=lineLayer #push the line layer to mapTool
                 self.canvas.setMapTool(self.mapTool) #tell QGIS that we use our tool
                 #self.iface.messageBar().pushMessage("Processing " + lineLayer.name() ,duration=1)
             else:
-                self.iface.messageBar().pushMessage("Line and project CRS do not match (and they have to)!",level=Qgis.Warning)
-                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with old layer if already loaded
-            
-      
+                self.iface.messageBar().pushMessage("Line and points CRS do not match (and they have to)!",level=Qgis.Warning)
+                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with plugin
     def Kp4Points(self):
         if self.first_startKp4p == True:
             self.first_startKp4p = False
@@ -203,17 +207,24 @@ class KpFind:
             ptLayer = self.dlgKp4p.inputPtLayerKp4p.currentLayer()
             lnLayer = self.dlgKp4p.inputLineLayerKp4p.currentLayer()
             check = ptLayer.crs() == lnLayer.crs()
-            if check is True:
+            geographic_check = False if (ptLayer.crs().isGeographic() or lnLayer.crs().isGeographic()) == True else True
+            print(ptLayer.crs().isGeographic())
+            if geographic_check is False:
+                self.iface.messageBar().pushMessage("Geographic CRS detected, need projected CRS!",level=Qgis.Warning)
+                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with plugin
+            elif check is True:
                 if lnLayer.featureCount() > 1:
                     self.iface.messageBar().pushMessage("More than 1 feature in line layer, using the first feature!",level=Qgis.Warning)
                 self.mapTool = KPTool(self.iface, lnLayer)
                 self.mapTool.kpdeckp4p = self.dlgKp4p.KP_prec_kp4p.value() #pass on precision values
                 self.mapTool.dccdeckp4p = self.dlgKp4p.DCC_prec_kp4p.value() #pass on precision values
+                self.mapTool.reversekp_statuskp4p = self.dlgKp4p.Reverse_KP_kp4p.checkState() #pass on True if the button is checked
+                self.mapTool.offsetkp4p = self.dlgKp4p.offset_m_kp4p.value()/1000 #grab the offset from the dialogue, convert to km
                 new_ptLayer =self.mapTool.KP_Iterate_pts(lnLayer, ptLayer) #function to iterate over points, calls other functions in it
                 QgsProject.instance().addMapLayer(new_ptLayer) #add new layer to map
                 self.iface.messageBar().pushMessage("Processed points along layer " + str(lnLayer.name()),level=Qgis.Info, duration = 2)
             else:
                 self.iface.messageBar().pushMessage("Line and points CRS do not match (and they have to)!",level=Qgis.Warning)
-                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with old layer if already loaded
+                self.iface.actionPan().trigger() #trigger pan tool to prevent user working with plugin
                 
 

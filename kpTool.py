@@ -91,7 +91,11 @@ class KPTool(QgsMapToolEmitPoint):
 #        self.marker.setCenter(pt)
         dist_off_L = self.closestPt(self.linelayer, pt, True)[1]
         line_length = self.measureLineGeod(self.linelayer, pt)
-        LL_message = '{:.{prec}f}'.format(line_length, prec=self.kpdec) #round to specified decimal
+        whole_line_length = self.measureWholeLineGeod(self.linelayer)
+        if self.reversekp_status == 0:            
+            LL_message = '{:.{prec}f}'.format(line_length+self.offset, prec=self.kpdec) #round to specified decimal
+        elif self.reversekp_status == 2:
+            LL_message = '{:.{prec}f}'.format(whole_line_length-line_length+self.offset, prec=self.kpdec) #round to specified decimal
         DT_message = '{:.{prec}f}'.format(dist_off_L, prec=self.dccdec) #round to specified decimal
         #check for output format below:
         if self.out_format == KpFindDialogIR.KP_out:  # KP
@@ -100,12 +104,10 @@ class KPTool(QgsMapToolEmitPoint):
             msg = "KP " + str(LL_message) + " , DOL : " + str(DT_message) +" m"
         elif self.out_format == KpFindDialogIR.DMS_out:  # Lat Lon and KP
             msg = self.formatCoord(pt)[0] + ", "+ self.formatCoord(pt)[1] + " (KP " + str(LL_message) + ")"
-        
         if msg is not None:
             clipboard = QApplication.clipboard()
             clipboard.setText(msg)
-            #self.iface.messageBar().pushMessage("", "coordinate {} copied to the clipboard".format(msg), level=Qgis.Info, duration=2)
-            self.iface.messageBar().pushMessage(msg +" on layer " + str(self.linelayer.name())+ " copied to clipboard",level=Qgis.Info, duration=2)
+            self.iface.messageBar().pushMessage(msg +" on layer " + str(self.linelayer.name())+ " copied to clipboard",level=Qgis.Info, duration=2)            
         else:
             self.iface.messageBar().pushMessage("Something went wrong with the coordinate composition",level=Qgis.Info, duration=2)
 
@@ -126,6 +128,29 @@ class KPTool(QgsMapToolEmitPoint):
             vect_x = p2.x() - p1.x()
             vect_y = p2.y() - p1.y()
             return math.sqrt(vect_x**2 + vect_y**2)
+            
+    def name_collision_checker(self, new_names, old_layer):
+        #check for name collisions in attribute fields
+        fields_ptLayer = old_layer.dataProvider().fields()
+        old_fields_names = [] #we will use this later to compare for collisions
+        for f in fields_ptLayer: #iterate over all field names and add to new provider
+            old_fields_names.append(f.name()) #create the collision test list
+        trynumber = 1
+        num_suffix = ''
+        max_num = 1      
+        for name in new_names:
+            collision = True
+            while collision:   # Iterate until there are no collissions
+                collision = False
+                if name+num_suffix in old_fields_names:
+                    collision = True
+                    num_suffix = '_'+str(trynumber)
+                    if trynumber > max_num+1:
+                        max_num = trynumber 
+                        num_suffix = '_'+str(max_num)
+                    trynumber = trynumber + 1
+        new_list = [item + num_suffix for item in new_names] #add same suffix to all fields
+        return new_list
         
     def closestPt(self, linelayer, clicked_point, lineext=False): #get the linelayer and QgsPointXY
         '''This will take a point and a line layer and find the closest point
@@ -151,6 +176,9 @@ class KPTool(QgsMapToolEmitPoint):
             geomTo4326 = QgsCoordinateTransform(srcCRS, wgs84, QgsProject.instance()) #convert if needed
             ptCP84 = geomTo4326.transform(clicked_point)
             ptPP84 = geomTo4326.transform(ProjPoint)
+        else:
+            ptCP84 = clicked_point
+            ptPP84 = ProjPoint
         geod_ds = KPTool.geod.Inverse(ptCP84.y(), ptCP84.x(), ptPP84.y(), ptPP84.x())
         Distance_geod2 = geod_ds['s12']
         if leftoff < 0:
@@ -165,7 +193,7 @@ class KPTool(QgsMapToolEmitPoint):
         length up till that point for the segment. Inspired by shape tools and closest point plugins'''
         srcCRS = linetoMeasure.sourceCrs() #get CRS from line
         feature = linetoMeasure.getFeature(0) #get first feature from line
-        wgs84=KPTool.epsg4326 #define EPSG 43226
+        wgs84=KPTool.epsg4326 #define EPSG 4326
         proj_pt, dist_ext = self.closestPt(linetoMeasure, clicked_pt, True) #we'll need that point later to compare with projected points of subsegments
         proj_pt_on_line, dist_nonext = self.closestPt(linetoMeasure, clicked_pt, False) #get proj point on non-extended line
         geomF = feature.geometry()
@@ -203,6 +231,12 @@ class KPTool(QgsMapToolEmitPoint):
                         proj_pt84 = geomTo4326.transform(proj_pt)
                         proj_pt_on_line84 = geomTo4326.transform(proj_pt_on_line)
                         TestPoint84 = geomTo4326.transform(TestPoint)
+                    else:
+                        ptStart84 = ptStart
+                        ptEnd84 = ptEnd
+                        proj_pt84 = proj_pt
+                        proj_pt_on_line84 = proj_pt_on_line
+                        TestPoint84 = TestPoint
                     test_dist = KPTool.geod.Inverse(proj_pt_on_line84.y(), proj_pt_on_line84.x(), TestPoint84.y(), TestPoint84.x()) #check distance between two on-subsegment-points
                     l = KPTool.geod.Inverse(ptStart84.y(), ptStart84.x(), ptEnd84.y(), ptEnd84.x())  #geodetic distance between begin and end of subsegment
                     roundTD = round(test_dist['s12'], 6) #round so we can get zero
@@ -220,7 +254,8 @@ class KPTool(QgsMapToolEmitPoint):
                         distance = -extra_dist['s12']
                     else:
                         distance = distance + extra_dist['s12']
-                out = distance/1000 # Distance converted KM       
+                out = distance/1000 # Distance converted KM
+        
         return out
         
     def KP_Iterate_pts(self, linetoMeasurekp4p, ptLayer):
@@ -231,36 +266,16 @@ class KPTool(QgsMapToolEmitPoint):
         prov_old = ptLayer.dataProvider() #provider to get the attribute field names and type
         provider_ptLayer = new_pt_layer.dataProvider() #provider for new layer to add the features to
         fields_ptLayer = prov_old.fields()
-        old_fields_names = [] #we will use this later to compare for collisions
+        whole_line_length = self.measureWholeLineGeod(linetoMeasurekp4p)
         for f in fields_ptLayer: #iterate over all field names and add to new provider
             znameField= f.name()
-            old_fields_names.append(f.name()) #create the collision test list
             Type= str(f.typeName())
             if Type == 'Integer': provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.Int)])
             if Type == 'Real': provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.Double)])
             if Type == 'String': provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.String)])
             else : provider_ptLayer.addAttributes([ QgsField( znameField, QVariant.String)])
-  
-        #check for name collisions in attribute fields
         iterate_names_list = ["KP","DOL","Latitude","Longitude"]
-        new_attr_names = [] #here we get any updated attributes
-        trynumber = 1
-        num_suffix = ''
-        max_num = 1      
-        for name in iterate_names_list:
-            collision = True
-            while collision:   # Iterate until there are no collissions
-                collision = False
-                if name+num_suffix in old_fields_names:
-                    collision = True
-                    num_suffix = '_'+str(trynumber)
-                    if trynumber > max_num+1:
-                        max_num = trynumber 
-                        num_suffix = '_'+str(max_num)
-                    trynumber = trynumber + 1
-            
-        new_attr_names = [item + num_suffix for item in iterate_names_list] #add same suffix to all fields
-
+        new_attr_names = self.name_collision_checker(iterate_names_list, ptLayer)
         provider_ptLayer.addAttributes([QgsField(new_attr_names[0], QVariant.Double),
                                     QgsField(new_attr_names[1], QVariant.Double), 
                                     QgsField(new_attr_names[2], QVariant.String),
@@ -274,8 +289,10 @@ class KPTool(QgsMapToolEmitPoint):
             new_feat = QgsFeature()
             new_feat.setGeometry(geom_of) #create and set geometry from old feature
             attributes_nf=old_feat.attributes()  #copy of old feat attributes
-            
-            kp_dist = self.measureLineGeod(linetoMeasurekp4p, point_of) #run measurements
+            if self.reversekp_statuskp4p == 0:
+                kp_dist = self.measureLineGeod(linetoMeasurekp4p, point_of)+self.offsetkp4p #run measurements
+            elif self.reversekp_statuskp4p == 2:
+                kp_dist = whole_line_length - self.measureLineGeod(linetoMeasurekp4p, point_of)+self.offsetkp4p
             prjp, dcc_dist = self.closestPt(linetoMeasurekp4p, point_of, True) #run measurements. we won't need prjp
 
             attributes_nf.append(round(kp_dist, self.kpdeckp4p)) #round with precision values
@@ -335,4 +352,44 @@ class KPTool(QgsMapToolEmitPoint):
             s = "{:0{}.0f}\xB0{}{:0{}.0{prec}f}\'{}{}".format(deg, zeroes*3, dmsSpace, dmin, prec+zeroes*3, dmsSpace, unit, prec=prec)
         return(s)
         
+    def measureWholeLineGeod(self, linetoMeasure):
+        '''This will take a line segment and return its geodetic length'''
+        srcCRS = linetoMeasure.sourceCrs() #get CRS from line
+        feature = linetoMeasure.getFeature(0) #get first feature from line
+        wgs84=KPTool.epsg4326 #define EPSG 43226
+        geomF = feature.geometry()
+        if srcCRS != wgs84:
+            geomTo4326 = QgsCoordinateTransform(srcCRS, wgs84, QgsProject.instance()) #convert if needed
+        if geomF.isMultipart(): #get nodes out of data
+            ptdata = [geomF.asMultiPolyline()]
+        else:
+            ptdata = [[geomF.asPolyline()]]
+        for seg in ptdata:
+            if len(seg) < 1: #should never happen
+                self.iface.messageBar().pushMessage("Something is strange with your line file",level=Qgis.Critical, duration=2)
+                continue 
+            for pts in seg: #now we get all nodes from start to end of line
+                numpoints = len(pts)
+                
+                if numpoints < 2: #should never happen
+                    self.iface.messageBar().pushMessage("Something is strange with your line file",level=Qgis.Critical, duration=2)
+                    continue
+                    
+                ptStart = QgsPointXY(pts[0].x(), pts[0].y()) #get initial point coords
+                # Calculate the total distance of this line segment
+                distance = 0.0
+                for x in range(1,numpoints): #from point one (since we preextend segment), cumulative
+                    ptEnd = QgsPointXY(pts[x].x(), pts[x].y()) #coordinates of next point                 
+                    if srcCRS != wgs84: # Convert to 4326 - just to be safe when using geodetic measure
+                        ptStart84 = geomTo4326.transform(ptStart)
+                        ptEnd84 = geomTo4326.transform(ptEnd)
+                    else:
+                        ptStart84 = ptStart
+                        ptEnd84 = ptEnd
+                    l = KPTool.geod.Inverse(ptStart84.y(), ptStart84.x(), ptEnd84.y(), ptEnd84.x())  #geodetic distance between begin and end of subsegment                    
+                    distance += l['s12'] #add to comulative
+
+                    ptStart = ptEnd #the last shall be the first and the loop goes on
+                out = distance/1000 # Distance converted KM
         
+        return out

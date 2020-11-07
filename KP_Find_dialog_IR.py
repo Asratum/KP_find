@@ -28,4 +28,6 @@ class KpFindDialogIR(QtWidgets.QDialog, FORM_CLASS):
         self.output_format_box.addItems(['KP 0.123', 'KP 0.123, DCC 12 m', '05\xB0 13.2680\' S, 009\xB0 33.0401\' E (KP 0.123)']) #populate dropdown
         self.KP_prec.setValue(3) #set default values
         self.DCC_prec.setValue(0) #set default values
+        self.Reverse_KP.setCheckState(False)
+        self.offset_m.setValue(0)
         

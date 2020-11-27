@@ -183,6 +183,7 @@ class KpFind:
                 self.mapTool.kpdec = self.dlgIR.KP_prec.value() #pass on variable for decimals for KP
                 self.mapTool.dccdec = self.dlgIR.DCC_prec.value() #pass on variable for decimals for DCC
                 self.mapTool.reversekp_status = self.dlgIR.Reverse_KP.checkState() #pass on True if the button is checked
+                self.mapTool.geodetic_use = self.dlgIR.Geodetic.checkState() #pass on True if the button is checked
                 self.mapTool.offset = self.dlgIR.offset_m.value()/1000 #grab the offset from the dialogue, convert to km
                 self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() #pass on variable for decimals for DOL
                 self.mapTool.lineLayer=lineLayer #push the line layer to mapTool
@@ -219,6 +220,7 @@ class KpFind:
                 self.mapTool.kpdeckp4p = self.dlgKp4p.KP_prec_kp4p.value() #pass on precision values
                 self.mapTool.dccdeckp4p = self.dlgKp4p.DCC_prec_kp4p.value() #pass on precision values
                 self.mapTool.reversekp_statuskp4p = self.dlgKp4p.Reverse_KP_kp4p.checkState() #pass on True if the button is checked
+                self.mapTool.geodetic_usekp4p = self.dlgKp4p.Geodetic_kp4p.checkState() #pass on True if the button is checked
                 self.mapTool.offsetkp4p = self.dlgKp4p.offset_m_kp4p.value()/1000 #grab the offset from the dialogue, convert to km
                 new_ptLayer =self.mapTool.KP_Iterate_pts(lnLayer, ptLayer) #function to iterate over points, calls other functions in it
                 QgsProject.instance().addMapLayer(new_ptLayer) #add new layer to map

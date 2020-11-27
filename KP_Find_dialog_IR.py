@@ -29,5 +29,6 @@ class KpFindDialogIR(QtWidgets.QDialog, FORM_CLASS):
         self.KP_prec.setValue(3) #set default values
         self.DCC_prec.setValue(0) #set default values
         self.Reverse_KP.setCheckState(False)
+        self.Geodetic.setCheckState(2)
         self.offset_m.setValue(0)
         

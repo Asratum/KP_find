@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>375</width>
-    <height>332</height>
+    <width>491</width>
+    <height>259</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
@@ -44,7 +50,7 @@
    <item row="5" column="2">
     <widget class="QSpinBox" name="DCC_prec_kp4p"/>
    </item>
-   <item row="8" column="1">
+   <item row="9" column="1">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -85,7 +91,7 @@
      </property>
     </widget>
    </item>
-   <item row="7" column="1">
+   <item row="8" column="1">
     <widget class="QLabel" name="label_5">
      <property name="text">
       <string>Offset to apply in meters</string>
@@ -95,13 +101,26 @@
      </property>
     </widget>
    </item>
-   <item row="7" column="2">
+   <item row="8" column="2">
     <widget class="QDoubleSpinBox" name="offset_m_kp4p">
      <property name="minimum">
       <double>-10000000.000000000000000</double>
      </property>
      <property name="maximum">
       <double>10000000.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="2">
+    <widget class="QCheckBox" name="Geodetic_kp4p">
+     <property name="text">
+      <string>Use geodetic lengths rather than Cartesian</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="tristate">
+      <bool>false</bool>
      </property>
     </widget>
    </item>

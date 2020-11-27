@@ -24,5 +24,6 @@ class KpFindDialogKp4p(QtWidgets.QDialog, FORM_CLASS):
         self.KP_prec_kp4p.setValue(3) #set default values
         self.DCC_prec_kp4p.setValue(0) #set default values
         self.Reverse_KP_kp4p.setCheckState(False)
+        self.Geodetic_kp4p.setCheckState(2)
         self.offset_m_kp4p.setValue(0)
         

@@ -89,9 +89,15 @@ class KPTool(QgsMapToolEmitPoint):
 #            self.marker.setPenWidth(2)
 #            self.marker.setIconType(QgsVertexMarker.ICON_CROSS)
 #        self.marker.setCenter(pt)
-        dist_off_L = self.closestPt(self.linelayer, pt, True)[1]
-        line_length = self.measureLineGeod(self.linelayer, pt)
-        whole_line_length = self.measureWholeLineGeod(self.linelayer)
+        
+        if self.geodetic_use == 0:
+            line_length = self.measureLineCart(self.linelayer, pt)
+            whole_line_length = self.measureWholeLineCart(self.linelayer)
+            dist_off_L = self.closestPt(self.linelayer, pt, True, False)[1]  #second False means we use Cartesian distance
+        elif self.geodetic_use == 2:
+            line_length = self.measureLineGeod(self.linelayer, pt)
+            whole_line_length = self.measureWholeLineGeod(self.linelayer)
+            dist_off_L = self.closestPt(self.linelayer, pt, True, True)[1]
         if self.reversekp_status == 0:            
             LL_message = '{:.{prec}f}'.format(line_length+self.offset, prec=self.kpdec) #round to specified decimal
         elif self.reversekp_status == 2:
@@ -152,7 +158,7 @@ class KPTool(QgsMapToolEmitPoint):
         new_list = [item + num_suffix for item in new_names] #add same suffix to all fields
         return new_list
         
-    def closestPt(self, linelayer, clicked_point, lineext=False): #get the linelayer and QgsPointXY
+    def closestPt(self, linelayer, clicked_point, lineext=False, give_geod=True): #get the linelayer and QgsPointXY
         '''This will take a point and a line layer and find the closest point
         along a perpendicular line from the point to the line layer. It takes
         the first feature in that line layer. It will also extend the first and
@@ -160,18 +166,22 @@ class KPTool(QgsMapToolEmitPoint):
         line_feat = linelayer.getFeature(0) #get the only feature in the layer
         geomL = line_feat.geometry() #get the linear geometry from the feature
         if lineext == True:
-            geomL = geomL.extendLine(1000000,10000000) #extend fist and last seg by 1000km
+            geomL = geomL.extendLine(1000000,10000000) #extend fist and last seg by 1000km, bit of a fudge
         distinit,mindistpt,afterveretexinit,leftoff=geomL.closestSegmentWithContext(clicked_point) #get min distance point to line
         ProjPoint = QgsPointXY(mindistpt[0],mindistpt[1]) #create projected point on line
         
-        Distance = self.magnitude(clicked_point, ProjPoint) #measure planar distance, currently not used
+        #Distance = self.magnitude(clicked_point, ProjPoint) #measure planar distance directly from vector, currently not used
+        distanceobj_Cart = QgsDistanceArea()
+        #distanceobj_Cart.setEllipsoid('Cartesian') #set an invalid ellipsoid, so we don't get geodetic
+        distance_cart=distanceobj_Cart.measureLine(clicked_point, ProjPoint)
+        #distance_cart = self.magnitude(clicked_point, ProjPoint)
         distancef = QgsDistanceArea() #define geodetic measurement function
         distancef.setEllipsoid('WGS84') #set ellipsoid
         distancef.setSourceCrs(self.proj_crs,QgsProject.instance().transformContext()) #set the CRS for measurement
         Distance_geod=distancef.measureLine(clicked_point, ProjPoint) #give geodetic distance
         #we'll try to implement geographiclib here
         srcCRS = linelayer.sourceCrs() #get CRS from line
-        wgs84=KPTool.epsg4326 #define EPSG 43226
+        wgs84=KPTool.epsg4326 #define EPSG 4326
         if srcCRS != wgs84:
             geomTo4326 = QgsCoordinateTransform(srcCRS, wgs84, QgsProject.instance()) #convert if needed
             ptCP84 = geomTo4326.transform(clicked_point)
@@ -182,11 +192,13 @@ class KPTool(QgsMapToolEmitPoint):
         geod_ds = KPTool.geod.Inverse(ptCP84.y(), ptCP84.x(), ptPP84.y(), ptPP84.x())
         Distance_geod2 = geod_ds['s12']
         if leftoff < 0:
-            Distance_geod = -Distance_geod
-            Distance = -Distance
-            Distance_geod2 = -Distance_geod2
-            
-        return ProjPoint, Distance_geod2
+            Distance_geod = -Distance_geod #this is the 'normal' ellipsoid from QGIS, not used
+            distance_cart = -distance_cart #planar distance
+            Distance_geod2 = -Distance_geod2 #return the geographiclib distance
+        if give_geod is True:    
+            return ProjPoint, Distance_geod2
+        else:
+            return ProjPoint, distance_cart
         
     def measureLineGeod(self, linetoMeasure, clicked_pt):
         '''This will take a line segment and the clicked point and return the
@@ -238,11 +250,11 @@ class KPTool(QgsMapToolEmitPoint):
                         proj_pt_on_line84 = proj_pt_on_line
                         TestPoint84 = TestPoint
                     test_dist = KPTool.geod.Inverse(proj_pt_on_line84.y(), proj_pt_on_line84.x(), TestPoint84.y(), TestPoint84.x()) #check distance between two on-subsegment-points
-                    l = KPTool.geod.Inverse(ptStart84.y(), ptStart84.x(), ptEnd84.y(), ptEnd84.x())  #geodetic distance between begin and end of subsegment
+                    l_geod = KPTool.geod.Inverse(ptStart84.y(), ptStart84.x(), ptEnd84.y(), ptEnd84.x())  #geodetic distance between begin and end of subsegment
                     roundTD = round(test_dist['s12'], 6) #round so we can get zero
                     
                     if roundTD != 0: #not yet the last segment to be measured
-                        distance += l['s12'] #add to comulative
+                        distance += l_geod['s12'] #add to comulative
                     else: #this is the segment, where we have to stop measuring
                         d_to_click = KPTool.geod.Inverse(ptStart84.y(), ptStart84.x(), proj_pt_on_line84.y(), proj_pt_on_line84.x())
                         distance += d_to_click['s12']
@@ -250,13 +262,66 @@ class KPTool(QgsMapToolEmitPoint):
                     ptStart = ptEnd #the last shall be the first and the loop goes on
                 if QgsPoint(proj_pt) != QgsPoint(proj_pt_on_line):
                     extra_dist = KPTool.geod.Inverse(proj_pt84.y(), proj_pt84.x(), proj_pt_on_line84.y(), proj_pt_on_line84.x())
-                    if round(distance, 6) == 0:
+                    if round(distance, 6) == 0: #we have to round here to something small, because we may have a difference of micrometer or so
                         distance = -extra_dist['s12']
                     else:
                         distance = distance + extra_dist['s12']
-                out = distance/1000 # Distance converted KM
-        
+                out = distance/1000 # Distance converted to KM        
         return out
+
+    def measureLineCart(self, linetoMeasure, clicked_pt):
+        '''This will take a line segment and the clicked point and return the
+        length up till that point for the segment. Uses vector magnitude for the distances, which is essentially Cartesian coordinates'''
+        feature = linetoMeasure.getFeature(0) #get first feature from line
+        proj_pt= self.closestPt(linetoMeasure, clicked_pt, True, True)[0] #we'll need that point later to compare with projected points of subsegments
+        proj_pt_on_line= self.closestPt(linetoMeasure, clicked_pt, False, True)[0] #get proj point on non-extended line
+        geomF = feature.geometry()
+        distanceobj_Cart = QgsDistanceArea()
+        if geomF.isMultipart(): #get nodes out of data
+            ptdata = [geomF.asMultiPolyline()]
+        else:
+            ptdata = [[geomF.asPolyline()]]
+        for seg in ptdata:
+            if len(seg) < 1: #should never happen
+                self.iface.messageBar().pushMessage("Something is strange with your line file",level=Qgis.Critical, duration=2)
+                continue 
+            for pts in seg: #now we get all nodes from start to end of line
+                numpoints = len(pts)
+                
+                if numpoints < 2: #should never happen
+                    self.iface.messageBar().pushMessage("Something is strange with your line file",level=Qgis.Critical, duration=2)
+                    continue
+                    
+                ptStart = QgsPointXY(pts[0].x(), pts[0].y()) #get initial point coords
+                # Calculate the total distance of this line segment
+                distance = 0.0
+                for x in range(1,numpoints): #from point one (since we preextend segment), cumulative
+                    ptEnd = QgsPointXY(pts[x].x(), pts[x].y()) #coordinates of next point
+                    PP = QgsPoint(ptStart.x(), ptStart.y())
+                    PPP = QgsPoint(ptEnd.x(), ptEnd.y())
+                    seg_geom = QgsGeometry.fromPolyline((PP, PPP)) #generate geometry for current subsegment
+                    distinit,mindistpt,aftervertexinit,leftoff = seg_geom.closestSegmentWithContext(proj_pt)
+                    TestPoint=QgsPointXY(mindistpt[0], mindistpt[1]) #create projected point on subsegment
+                    test_dist_Cart = distanceobj_Cart.measureLine(proj_pt_on_line, TestPoint) #check distance between two on-subsegment-points
+                    l_Cart = distanceobj_Cart.measureLine(ptStart, ptEnd) #cartesian distance between begin and end point
+                    roundTD = round(test_dist_Cart, 6) #round so we can get zero
+                    
+                    if roundTD != 0: #not yet the last segment to be measured
+                        distance += l_Cart
+                    else: #this is the segment, where we have to stop measuring
+                        d_to_click_Cart = distanceobj_Cart.measureLine(ptStart, proj_pt_on_line)
+                        distance += d_to_click_Cart
+                        break #break loop and give distance so far
+                    ptStart = ptEnd #the last shall be the first and the loop goes on
+                if QgsPoint(proj_pt) != QgsPoint(proj_pt_on_line):
+                    extra_dist_Cart = distanceobj_Cart.measureLine(proj_pt, proj_pt_on_line)
+                    if round(distance, 6) == 0: #we have to round here to something small, because we may have a difference of micrometer or so
+                        distance = -extra_dist_Cart
+                    else:
+                        distance = distance + extra_dist_Cart
+                out = distance/1000 # Distance converted to KM        
+        return out
+
         
     def KP_Iterate_pts(self, linetoMeasurekp4p, ptLayer):
         """will iterate over all points in a layer, finding distance to and along line.
@@ -266,7 +331,6 @@ class KPTool(QgsMapToolEmitPoint):
         prov_old = ptLayer.dataProvider() #provider to get the attribute field names and type
         provider_ptLayer = new_pt_layer.dataProvider() #provider for new layer to add the features to
         fields_ptLayer = prov_old.fields()
-        whole_line_length = self.measureWholeLineGeod(linetoMeasurekp4p)
         for f in fields_ptLayer: #iterate over all field names and add to new provider
             znameField= f.name()
             Type= str(f.typeName())
@@ -289,11 +353,19 @@ class KPTool(QgsMapToolEmitPoint):
             new_feat = QgsFeature()
             new_feat.setGeometry(geom_of) #create and set geometry from old feature
             attributes_nf=old_feat.attributes()  #copy of old feat attributes
+            
+            if self.geodetic_usekp4p == 0:
+                line_length = self.measureLineCart(self.linelayer, point_of)
+                whole_line_length = self.measureWholeLineCart(self.linelayer)
+                dcc_dist = self.closestPt(linetoMeasurekp4p, point_of, True, False)[1]  #second False means we use Cartesian distance
+            elif self.geodetic_usekp4p == 2:
+                line_length = self.measureLineGeod(linetoMeasurekp4p, point_of)+self.offsetkp4p
+                whole_line_length = self.measureWholeLineGeod(self.linelayer)
+                dcc_dist = self.closestPt(linetoMeasurekp4p, point_of, True, True)[1]
             if self.reversekp_statuskp4p == 0:
-                kp_dist = self.measureLineGeod(linetoMeasurekp4p, point_of)+self.offsetkp4p #run measurements
+                kp_dist =  line_length
             elif self.reversekp_statuskp4p == 2:
-                kp_dist = whole_line_length - self.measureLineGeod(linetoMeasurekp4p, point_of)+self.offsetkp4p
-            prjp, dcc_dist = self.closestPt(linetoMeasurekp4p, point_of, True) #run measurements. we won't need prjp
+                kp_dist = whole_line_length - line_length
 
             attributes_nf.append(round(kp_dist, self.kpdeckp4p)) #round with precision values
             attributes_nf.append(round(dcc_dist,self.dccdeckp4p)) #round with precision values
@@ -390,6 +462,35 @@ class KPTool(QgsMapToolEmitPoint):
                     distance += l['s12'] #add to comulative
 
                     ptStart = ptEnd #the last shall be the first and the loop goes on
-                out = distance/1000 # Distance converted KM
-        
+                out = distance/1000 # Distance converted KM        
         return out
+    
+    def measureWholeLineCart(self, linetoMeasure):
+            '''This will take a line segment and return its geodetic length'''
+            feature = linetoMeasure.getFeature(0) #get first feature from line
+            geomF = feature.geometry()
+            distanceobj_Cart = QgsDistanceArea()
+            if geomF.isMultipart(): #get nodes out of data
+                ptdata = [geomF.asMultiPolyline()]
+            else:
+                ptdata = [[geomF.asPolyline()]]
+            for seg in ptdata:
+                if len(seg) < 1: #should never happen
+                    self.iface.messageBar().pushMessage("Something is strange with your line file",level=Qgis.Critical, duration=2)
+                    continue 
+                for pts in seg: #now we get all nodes from start to end of line
+                    numpoints = len(pts)                    
+                    if numpoints < 2: #should never happen
+                        self.iface.messageBar().pushMessage("Something is strange with your line file",level=Qgis.Critical, duration=2)
+                        continue
+                        
+                    ptStart = QgsPointXY(pts[0].x(), pts[0].y()) #get initial point coords
+                    # Calculate the total distance of this line segment
+                    distance = 0.0
+                    for x in range(1,numpoints): #from point one (since we preextend segment), cumulative
+                        ptEnd = QgsPointXY(pts[x].x(), pts[x].y()) #coordinates of next point                 
+                        l_Cart = distanceobj_Cart.measureLine(ptStart, ptEnd)                 
+                        distance += l_Cart #add to comulative    
+                        ptStart = ptEnd #the last shall be the first and the loop goes on
+                out = distance/1000 # Distance converted KM        
+            return out

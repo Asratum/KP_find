@@ -2,5 +2,6 @@
     <qresource prefix="/plugins/KP_Find" >
         <file>KP_Interactive.png</file>
         <file>KP_4p.png</file>
+		<file>KP_place_KPs.png</file>
     </qresource>
 </RCC>

@@ -10,10 +10,10 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'KP_Find_dialog_kp4p.ui'))
 
 
-class KpFindDialogKp4p(QtWidgets.QDialog, FORM_CLASS):
+class KpFindDialogKP_to_points(QtWidgets.QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
-        super(KpFindDialogKp4p, self).__init__(parent)
+        super(KpFindDialogKP_to_points, self).__init__(parent)
         
         # Set up the user interface from Designer through FORM_CLASS.
         # After self.setupUi() you can access any designer object by doing

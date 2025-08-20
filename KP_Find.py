@@ -1,24 +1,62 @@
 # -*- coding: utf-8 -*-
-import site
 import os
+import site
 
 from qgis.PyQt.QtCore import Qt, QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.gui import QgsMapToolEmitPoint, QgsVertexMarker
-from PyQt5.QtWidgets import QAction, QMessageBox #give messages
+from PyQt5.QtWidgets import QAction, QMessageBox, QDialog, QVBoxLayout, QListWidget, QPushButton, QLabel #give messages
 from qgis.core import (QgsCoordinateReferenceSystem,
                        QgsProject,
                        QgsMapLayerProxyModel,
-                       QgsVectorLayer,
-                       Qgis)
+                       Qgis,
+                       QgsWkbTypes)
 from .kpTool import KPTool
-# Initialize Qt resources from file resources.py
 from .resources import *
+# Initialize Qt resources from file resources.py
 # Import the code for the dialog
 from .KP_Find_dialog_IR import KpFindDialogInteractive
 from .KP_Find_dialog_kp4p import KpFindDialogKP_to_points
 from .KP_Find_dialog_placeKPs import PlaceKPs_dialog
 import os.path
+
+class FeatureSelectionDialog(QDialog):
+    def __init__(self, features, layer_name, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Select Feature from {layer_name}")
+        self.setMinimumWidth(350)
+
+        self.features = features
+        self.selected_feature = None
+
+        layout = QVBoxLayout()
+        
+        label = QLabel(f"Multiple features found in '{layer_name}'.\nPlease select one:")
+        layout.addWidget(label)
+
+        self.list_widget = QListWidget()
+        for feature in self.features:
+            display_name = f"Feature ID: {feature.id()}"
+            
+            self.list_widget.addItem(str(display_name))
+        layout.addWidget(self.list_widget)
+
+        select_button = QPushButton("Select")
+        select_button.clicked.connect(self.accept)
+        layout.addWidget(select_button)
+        
+        # Allow double-clicking to select
+        self.list_widget.itemDoubleClicked.connect(self.accept)
+
+        self.setLayout(layout)
+
+    def get_selected_feature(self):
+        selected_row = self.list_widget.currentRow()
+        if selected_row >= 0:
+            self.selected_feature = self.features[selected_row]
+        return self.selected_feature
+
+
 
 
 class KpFind:
@@ -164,37 +202,33 @@ class KpFind:
         # See if OK was pressed
         if result:            
             lineLayer = self.dlgIR.inputLineLayer.currentLayer() # gets the layer from the input QT box
-            self.proj_crs = self.canvas.mapSettings().destinationCrs()
-            check = lineLayer.crs()==self.proj_crs
-            geographic_check = False if lineLayer.crs().isGeographic() else True
-            if geographic_check is False:
-                self.iface.messageBar().pushMessage('Geographic CRS detected, need projected CRS!',level=Qgis.Warning)
+            selected_feature = self.select_single_feature(lineLayer)
+            
+            if not selected_feature:
                 self.iface.actionPan().trigger() # trigger pan tool to prevent user working with plugin
-            elif check is True:
-                if lineLayer.featureCount() > 1:
-                    self.iface.messageBar().pushMessage('More than 1 feature in line layer, using the first feature!',level=Qgis.Warning)                
-                self.mapTool = KPTool(self.iface, lineLayer) # initializes the copytool class
-                self.mapTool.removeVertexMarker()
-                self.mapTool.kpdec = self.dlgIR.KP_prec.value() # pass on variable for decimals for KP
-                self.mapTool.dccdec = self.dlgIR.DCC_prec.value() # pass on variable for decimals for DOL (DCC)
-                self.mapTool.reversekp_status = self.dlgIR.Reverse_KP.checkState() # pass on True if the button is checked
-                self.mapTool.geodetic_use = self.dlgIR.Geodetic.checkState() # pass on True if the button is checked
-                self.mapTool.offset = self.dlgIR.offset_m.value()/1000 # grab the offset from the dialogue, convert to km
-                self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() # pass on variable for decimals for DOL
-                self.mapTool.lineLayer=lineLayer # push the line layer to mapTool
-                self.canvas.setMapTool(self.mapTool) # tell QGIS that we use our tool
-                #self.iface.messageBar().pushMessage("Processing " + lineLayer.name() ,duration=1)
-            else:
-                self.iface.messageBar().pushMessage('Line and points CRS do not match by EPSG code (and they have to)!',level=Qgis.Warning)
-                self.iface.actionPan().trigger() # trigger pan tool to prevent user working with plugin
-                
+                # User cancelled or no valid features were found
+                return
+            
+            self.mapTool = KPTool(self.iface, lineLayer, selected_feature) # Pass the single selected feature
+            self.mapTool.removeVertexMarker()
+            self.mapTool.kpdec = self.dlgIR.KP_prec.value() # pass on variable for decimals for KP
+            self.mapTool.dccdec = self.dlgIR.DCC_prec.value() # pass on variable for decimals for DOL (DCC)
+            self.mapTool.reversekp_status = self.dlgIR.Reverse_KP_box.checkState() # pass on True if the button is checked
+            self.mapTool.geodetic_use = (self.dlgIR.Geodetic_box.checkState() == Qt.Checked) # pass on True if the button is checked
+            self.mapTool.extend_line = (self.dlgIR.Extendline_box.checkState() == Qt.Checked) # pass on True if the button is checked
+            self.mapTool.offset = self.dlgIR.offset_m.value()/1000 # grab the offset from the dialogue, convert to km
+            self.mapTool.out_format = self.dlgIR.output_format_box.currentIndex() # pass on variable for decimals for DOL
+            self.mapTool.lineLayer=lineLayer # push the line layer to mapTool
+            self.canvas.setMapTool(self.mapTool) # tell QGIS that we use our tool
+            #self.iface.messageBar().pushMessage("Processing " + lineLayer.name() ,duration=1)
+               
     def Kp4Points(self):
         """Iterate length measurement over a point layer"""
         if self.first_start_KP_to_points==True:
             self.first_start_KP_to_points = False
             self.dlgKp4p = KpFindDialogKP_to_points()
-            self.dlgKp4p.inputLineLayerKp4p.setFilters(QgsMapLayerProxyModel.LineLayer) # allows only line layers in the box
-            self.dlgKp4p.inputPtLayerKp4p.setFilters(QgsMapLayerProxyModel.PointLayer) # allows only point layers in the box
+            self.dlgKp4p.inputLineLayer.setFilters(QgsMapLayerProxyModel.LineLayer) # allows only line layers in the box
+            self.dlgKp4p.inputPtLayer.setFilters(QgsMapLayerProxyModel.PointLayer) # allows only point layers in the box
             self.dlgKp4p.setWindowFlags(Qt.WindowStaysOnTopHint) # make window always stay on top
         # show the dialog
         self.dlgKp4p.show()
@@ -202,29 +236,25 @@ class KpFind:
         result = self.dlgKp4p.exec_()
         # see if OK was pressed
         if result:
-            ptLayer = self.dlgKp4p.inputPtLayerKp4p.currentLayer()
-            lnLayer = self.dlgKp4p.inputLineLayerKp4p.currentLayer()
-            self.proj_crs = self.canvas.mapSettings().destinationCrs()
-            check = ptLayer.crs()==lnLayer.crs()==self.proj_crs
-            geographic_check = False if (ptLayer.crs().isGeographic() or lnLayer.crs().isGeographic()) == True else True
-            if geographic_check is False:
-                self.iface.messageBar().pushMessage("Geographic CRS detected, need projected CRS!",level=Qgis.Warning)
+            ptLayer = self.dlgKp4p.inputPtLayer.currentLayer()
+            lnLayer = self.dlgKp4p.inputLineLayer.currentLayer()
+            selected_feature = self.select_single_feature(lnLayer)
+            if not selected_feature:
                 self.iface.actionPan().trigger() # trigger pan tool to prevent user working with plugin
-            elif check is True:
-                if lnLayer.featureCount() > 1:
-                    self.iface.messageBar().pushMessage("More than 1 feature in line layer, using the first feature!",level=Qgis.Warning)
-                self.mapTool = KPTool(self.iface, lnLayer)
-                self.mapTool.kpdeckp4p = self.dlgKp4p.KP_prec_kp4p.value() # pass on precision values
-                self.mapTool.dccdeckp4p = self.dlgKp4p.DCC_prec_kp4p.value() # pass on precision values
-                self.mapTool.reversekp_statuskp4p = self.dlgKp4p.Reverse_KP_kp4p.checkState() # pass on True if the button is checked
-                self.mapTool.geodetic_usekp4p = self.dlgKp4p.Geodetic_kp4p.checkState() # pass on True if the button is checked
-                self.mapTool.offsetkp4p = self.dlgKp4p.offset_m_kp4p.value()/1000 # grab the offset from the dialogue, convert to km
-                new_ptLayer = self.mapTool.kpIteratePts(lnLayer, ptLayer) # function to iterate over points, calls other functions in it
-                QgsProject.instance().addMapLayer(new_ptLayer) # add new layer to map
-                self.iface.messageBar().pushMessage("Processed points along layer " + str(lnLayer.name()),level=Qgis.Info, duration = 2)
-            else:
-                self.iface.messageBar().pushMessage('Line,points and project CRS do not match by EPSG code (and they have to)!',level=Qgis.Warning)
-                self.iface.actionPan().trigger() # trigger pan tool to prevent user working with plugin        
+                # User cancelled or no valid features were found
+                return
+                            
+            self.mapTool = KPTool(self.iface, lnLayer, selected_feature)
+            self.mapTool.kpdeckp4p = self.dlgKp4p.KP_prec.value() # pass on precision values
+            self.mapTool.dccdeckp4p = self.dlgKp4p.DCC_prec.value() # pass on precision values
+            self.mapTool.reversekp_statuskp4p = (self.dlgKp4p.Reverse_KP_box.checkState() == Qt.Checked) # pass on True if the button is checked
+            self.mapTool.geodetic_usekp4p = (self.dlgKp4p.Geodetic_box.checkState() == Qt.Checked) # pass on True if the button is checked
+            self.mapTool.extend_linekp4p = (self.dlgKp4p.Extendline_box.checkState() == Qt.Checked) # pass on True if the button is checked
+            self.mapTool.offsetkp4p = self.dlgKp4p.offset_m.value()/1000 # grab the offset from the dialogue, convert to km
+            new_ptLayer = self.mapTool.kpIteratePts(lnLayer, ptLayer) # function to iterate over points, calls other functions in it
+            QgsProject.instance().addMapLayer(new_ptLayer) # add new layer to map
+            self.iface.messageBar().pushMessage("Processed points along layer " + str(lnLayer.name()),level=Qgis.Info, duration = 2)
+     
                 
     def PlaceKPs(self):
         """Place points at set geodetic distance along line"""
@@ -240,16 +270,38 @@ class KpFind:
         # see if OK was pressed
         if result:
             lnLayer = self.dlgKP_place.inputLineLayer.currentLayer()
-            self.mapTool = KPTool(self.iface, lnLayer)
+            self.mapTool = KPTool(self.iface, lnLayer) # we do not pass selected_feature, since we'll generate on all features
             self.mapTool.interval_for_KPs = self.dlgKP_place.interval_for_KPs.value() # pass on interval for points
-            self.mapTool.Reverse_KP_points = self.dlgKP_place.Reverse_KP_points.checkState() # pass on True if the button is checked
+            self.mapTool.Reverse_KP_points = (self.dlgKP_place.Reverse_KP_points.checkState() == Qt.Checked) # pass on True if the button is checked
             self.mapTool.Geodetic_option = self.dlgKP_place.Geodetic_option.checkState() # pass on True if the button is checked
             self.mapTool.offset_m_label = self.dlgKP_place.offset_m_label.value() # grab the offset from the dialogue
             if self.mapTool.Geodetic_option == 0:
-                new_ptLayer = self.mapTool.putKPPointsAlongLineCart(lnLayer, self.mapTool.interval_for_KPs)
+                new_ptLayer = self.mapTool.putKPPointsAlongLineCart(lnLayer, self.mapTool.interval_for_KPs, self.mapTool.offset_m_label)
             elif self.mapTool.Geodetic_option == 2:
-                new_ptLayer = self.mapTool.putKPPointsAlongLine(lnLayer, self.mapTool.interval_for_KPs) # function to iterate over points, calls other functions in it
+                new_ptLayer = self.mapTool.putKPPointsAlongLine(lnLayer, self.mapTool.interval_for_KPs, self.mapTool.offset_m_label) # function to iterate over points, calls other functions in it
             QgsProject.instance().addMapLayer(new_ptLayer) # add new layer to map
             self.iface.messageBar().pushMessage("Placed KPs along layer  " + str(lnLayer.name()),level=Qgis.Info, duration = 2)
         else:
             self.iface.actionPan().trigger() # trigger pan tool to prevent user working with plugin
+            
+    def select_single_feature(self, linelayer):
+        """
+        Handles feature selection from a layer.
+        Returns the selected feature or None if no feature is selected or an error occurs.
+        """
+        line_features = [f for f in linelayer.getFeatures() 
+                         if f.geometry() and not f.geometry().isNull() 
+                         and f.geometry().type() == QgsWkbTypes.LineGeometry]
+
+        if not line_features:
+            QMessageBox.warning(self.iface.mainWindow(), "No Features", "The selected line layer contains no valid line features.")
+            return None
+
+        if len(line_features) == 1:
+            return line_features[0]
+        else:
+            dialog = FeatureSelectionDialog(line_features, linelayer.name(), self.iface.mainWindow())
+            if dialog.exec_() == QDialog.Accepted:
+                return dialog.get_selected_feature()
+            else:
+                return None        

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>491</width>
-    <height>259</height>
+    <height>282</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -20,12 +20,8 @@
    <string>Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="1" colspan="2">
-    <widget class="QgsMapLayerComboBox" name="inputLineLayerKp4p">
-     <property name="showCrs">
-      <bool>true</bool>
-     </property>
-    </widget>
+   <item row="4" column="2">
+    <widget class="QSpinBox" name="KP_prec"/>
    </item>
    <item row="4" column="1">
     <widget class="QLabel" name="label_3">
@@ -37,20 +33,24 @@
      </property>
     </widget>
    </item>
-   <item row="4" column="2">
-    <widget class="QSpinBox" name="KP_prec_kp4p"/>
-   </item>
-   <item row="2" column="1">
-    <widget class="QLabel" name="label">
+   <item row="0" column="1">
+    <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>Input the point layer that will be used to measure</string>
+      <string>Input the line layer to be measured</string>
      </property>
     </widget>
    </item>
-   <item row="5" column="2">
-    <widget class="QSpinBox" name="DCC_prec_kp4p"/>
+   <item row="9" column="2">
+    <widget class="QDoubleSpinBox" name="offset_m">
+     <property name="minimum">
+      <double>-10000000.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10000000.000000000000000</double>
+     </property>
+    </widget>
    </item>
-   <item row="9" column="1">
+   <item row="10" column="1">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -60,24 +60,10 @@
      </property>
     </widget>
    </item>
-   <item row="3" column="1" colspan="2">
-    <widget class="QgsMapLayerComboBox" name="inputPtLayerKp4p">
-     <property name="showCrs">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="1">
-    <widget class="QLabel" name="label_2">
+   <item row="2" column="1">
+    <widget class="QLabel" name="label">
      <property name="text">
-      <string>Input the line layer to be measured</string>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="2">
-    <widget class="QCheckBox" name="Reverse_KP_kp4p">
-     <property name="text">
-      <string>Provide reverse KP</string>
+      <string>Input the point layer that will be used to measure</string>
      </property>
     </widget>
    </item>
@@ -91,7 +77,20 @@
      </property>
     </widget>
    </item>
-   <item row="8" column="1">
+   <item row="7" column="2">
+    <widget class="QCheckBox" name="Geodetic_box">
+     <property name="text">
+      <string>Use geodetic lengths rather than Cartesian</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="tristate">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
     <widget class="QLabel" name="label_5">
      <property name="text">
       <string>Offset to apply in meters</string>
@@ -101,26 +100,37 @@
      </property>
     </widget>
    </item>
-   <item row="8" column="2">
-    <widget class="QDoubleSpinBox" name="offset_m_kp4p">
-     <property name="minimum">
-      <double>-10000000.000000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>10000000.000000000000000</double>
+   <item row="1" column="1" colspan="2">
+    <widget class="QgsMapLayerComboBox" name="inputLineLayer">
+     <property name="showCrs">
+      <bool>true</bool>
      </property>
     </widget>
    </item>
-   <item row="7" column="2">
-    <widget class="QCheckBox" name="Geodetic_kp4p">
+   <item row="5" column="2">
+    <widget class="QSpinBox" name="DCC_prec"/>
+   </item>
+   <item row="3" column="1" colspan="2">
+    <widget class="QgsMapLayerComboBox" name="inputPtLayer">
+     <property name="showCrs">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="2">
+    <widget class="QCheckBox" name="Reverse_KP_box">
      <property name="text">
-      <string>Use geodetic lengths rather than Cartesian</string>
+      <string>Provide reverse KP</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="2">
+    <widget class="QCheckBox" name="Extendline_box">
+     <property name="text">
+      <string>Extend ends of line for calculation</string>
      </property>
      <property name="checked">
       <bool>true</bool>
-     </property>
-     <property name="tristate">
-      <bool>false</bool>
      </property>
     </widget>
    </item>

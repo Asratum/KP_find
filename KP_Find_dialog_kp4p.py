@@ -21,9 +21,10 @@ class KpFindDialogKP_to_points(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
-        self.KP_prec_kp4p.setValue(3) #set default values
-        self.DCC_prec_kp4p.setValue(0) #set default values
-        self.Reverse_KP_kp4p.setCheckState(False)
-        self.Geodetic_kp4p.setCheckState(2)
-        self.offset_m_kp4p.setValue(0)
+        self.KP_prec.setValue(3) #set default values
+        self.DCC_prec.setValue(0) #set default values
+        self.Reverse_KP_box.setCheckState(False)
+        self.Geodetic_box.setCheckState(2)
+        self.Extendline_box.setCheckState(2)
+        self.offset_m.setValue(0)
         
